@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Electric Motor Simulator</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: black;
+            color: white;
+            overflow: hidden;
+        }
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .star {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            animation: twinkle 5s infinite;
+        }
+        @keyframes twinkle {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        .simulator {
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            width: 500px;
+        }
+        h2 {
+            text-align: center;
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+        .motor-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .motor {
+            width: 200px;
+            height: 200px;
+            border: 3px solid #3498db;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
+        }
+        .rotor {
+            width: 80%;
+            height: 10px;
+            background-color: #e74c3c;
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            transform-origin: center;
+            transition: transform 0.1s linear;
+            cursor: help;
+        }
+        .stator {
+            width: 100%;
+            height: 100%;
+            border: 10px solid #bdc3c7;
+            border-radius: 50%;
+            box-sizing: border-box;
+            cursor: help;
+        }
+        .magnet {
+            width: 20px;
+            height: 40px;
+            background-color: #3498db;
+            position: absolute;
+            animation: pulse 2s infinite;
+            cursor: help;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .magnet:nth-child(1) { top: 0; left: 50%; transform: translateX(-50%); }
+        .magnet:nth-child(2) { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .display {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .display-item {
+            background-color: rgba(236, 240, 241, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: help;
+        }
+        .display-item span {
+            font-weight: bold;
+            color: #3498db;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+        label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: help;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .efficiency-bar {
+            height: 20px;
+            background-color: rgba(236, 240, 241, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .efficiency-fill {
+            height: 100%;
+            background-color: #2ecc71;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            z-index: 1;
+            display: none;
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="simulator">
+        <h2>Advanced Electric Motor Simulator</h2>
+        <div class="motor-container">
+            <div class="motor">
+                <div class="stator" data-tooltip="Stator: The stationary part of the motor that generates a magnetic field">
+                    <div class="magnet" data-tooltip="Permanent magnets: Create a fixed magnetic field"></div>
+                    <div class="magnet" data-tooltip="Permanent magnets: Create a fixed magnetic field"></div>
+                </div>
+                <div class="rotor" data-tooltip="Rotor: The rotating part of the motor that interacts with the magnetic field"></div>
+            </div>
+            <div class="display">
+                <div class="display-item" data-tooltip="RPM: Revolutions Per Minute - The speed at which the motor rotates">RPM: <span id="rpm">0</span></div>
+                <div class="display-item" data-tooltip="Current: The flow of electric charge through the motor">Current: <span id="current">0</span> A</div>
+                <div class="display-item" data-tooltip="Temperature: Heat generated by the motor during operation">Temperature: <span id="temperature">25</span>°C</div>
+                <div class="display-item" data-tooltip="Efficiency: The ratio of output power to input power">Efficiency: <span id="efficiency">0</span>%</div>
+            </div>
+        </div>
+        <div class="controls">
+            <label for="voltage" data-tooltip="Voltage: The electrical potential difference applied to the motor">Voltage: <span id="voltageValue">0</span> V</label>
+            <input type="range" id="voltage" min="0" max="12" step="0.1" value="0">
+            <label for="load" data-tooltip="Load: The mechanical resistance applied to the motor">Load: <span id="loadValue">0</span>%</label>
+            <input type="range" id="load" min="0" max="100" step="1" value="0">
+            <div class="efficiency-bar">
+                <div class="efficiency-fill" id="efficiencyBar"></div>
+            </div>
+            <button id="toggle">Start Motor</button>
+        </div>
+    </div>
+
+    <script>
+        function createStars() {
+            const starsContainer = document.createElement('div');
+            starsContainer.className = 'stars';
+            document.body.insertBefore(starsContainer, document.body.firstChild);
+
+            for (let i = 0; i < 200; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = Math.random() * 2 + 'px';
+                star.style.height = star.style.width;
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 5 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+
+        createStars();
+
+        const rotor = document.querySelector('.rotor');
+        const rpmDisplay = document.getElementById('rpm');
+        const currentDisplay = document.getElementById('current');
+        const temperatureDisplay = document.getElementById('temperature');
+        const efficiencyDisplay = document.getElementById('efficiency');
+        const voltageSlider = document.getElementById('voltage');
+        const voltageValue = document.getElementById('voltageValue');
+        const loadSlider = document.getElementById('load');
+        const loadValue = document.getElementById('loadValue');
+        const toggleButton = document.getElementById('toggle');
+        const efficiencyBar = document.getElementById('efficiencyBar');
+
+        let isRunning = false;
+        let rotation = 0;
+        let animationId;
+        let temperature = 25;
+        const maxTemperature = 100;
+        const coolingRate = 0.05;
+        const heatingRate = 0.02;
+
+        // Audio context
+        let audioContext = null;
+        let sourceNode = null;
+        let gainNode = null;
+
+        // Load audio file
+        let audioBuffer;
+        fetch('engine-rpm.mp3')
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                return audioContext.decodeAudioData(arrayBuffer);
+            })
+            .then(decodedAudio => {
+                audioBuffer = decodedAudio;
+            })
+            .catch(error => console.error('Error loading audio:', error));
+
+        function createSound() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            gainNode = audioContext.createGain();
+            gainNode.connect(audioContext.destination);
+            
+            // Start with zero gain
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            
+            sourceNode = createSourceNode();
+            sourceNode.start(0);
+            
+            // Fade in
+            gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.5);
+        }
+
+        function createSourceNode() {
+            let source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.loop = true;
+            source.connect(gainNode);
+            return source;
+        }
+
+        function updateSound(rpm) {
+            if (gainNode && sourceNode) {
+                const maxRPM = 6000;
+                const volume = Math.min(rpm / maxRPM, 1);
+                gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, 0.1);
+                
+                const playbackRate = 0.5 + Math.min(rpm / maxRPM, 1) * 1.5;
+                sourceNode.playbackRate.setTargetAtTime(playbackRate, audioContext.currentTime, 0.1);
+            }
+        }
+
+        function stopSound() {
+            if (gainNode) {
+                // Fade out
+                gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+                
+                setTimeout(() => {
+                    if (sourceNode) {
+                        sourceNode.stop();
+                        sourceNode.disconnect();
+                        sourceNode = null;
+                    }
+                    gainNode.disconnect();
+                    gainNode = null;
+                }, 500);
+            }
+        }
+
+        function updateMotor() {
+            const voltage = parseFloat(voltageSlider.value);
+            const load = parseFloat(loadSlider.value);
+            const rpm = voltage * 500 * (1 - load / 100);
+            const current = voltage / 2 * (1 + load / 100);
+
+            rotation += rpm / 60;
+            rotor.style.transform = `rotate(${rotation}deg)`;
+
+            rpmDisplay.textContent = rpm.toFixed(0);
+            currentDisplay.textContent = current.toFixed(2);
+
+            if (isRunning) {
+                temperature += (voltage * heatingRate * (1 + load / 100)) - coolingRate;
+            } else {
+                temperature = Math.max(temperature - coolingRate, 25);
+            }
+            temperature = Math.min(Math.max(temperature, 25), maxTemperature);
+            temperatureDisplay.textContent = temperature.toFixed(1);
+
+            const inputPower = voltage * current;
+            const outputPower = (rpm / 60) * (2 * Math.PI) * (load / 100);
+            const efficiency = inputPower > 0 ? (outputPower / inputPower) * 100 : 0;
+            efficiencyDisplay.textContent = efficiency.toFixed(1);
+            efficiencyBar.style.width = `${efficiency}%`;
+
+            if (isRunning) {
+                updateSound(rpm);
+            }
+
+            if (temperature >= maxTemperature) {
+                stopMotor();
+                alert('Motor overheated! Shutting down.');
+            } else {
+                animationId = requestAnimationFrame(updateMotor);
+            }
+        }
+
+        function startMotor() {
+            isRunning = true;
+            toggleButton.textContent = 'Stop Motor';
+            toggleButton.style.backgroundColor = '#e74c3c';
+            createSound();
+        }
+
+        function stopMotor() {
+            isRunning = false;
+            toggleButton.textContent = 'Start Motor';
+            toggleButton.style.backgroundColor = '#3498db';
+            stopSound();
+        }
+
+        function resetDisplays() {
+            rpmDisplay.textContent = '0';
+            currentDisplay.textContent = '0';
+            temperatureDisplay.textContent = '25.0';
+            efficiencyDisplay.textContent = '0';
+            efficiencyBar.style.width = '0%';
+        }
+
+        voltageSlider.addEventListener('input', () => {
+            voltageValue.textContent = voltageSlider.value;
+        });
+
+        loadSlider.addEventListener('input', () => {
+            loadValue.textContent = loadSlider.value;
+        });
+
+        toggleButton.addEventListener('click', () => {
+            if (isRunning) {
+                stopMotor();
+            } else {
+                startMotor();
+            }
+        });
+
+        updateMotor();
+
+        // Tooltip functionality
+        document.querySelectorAll('[data-tooltip]').forEach(element => {
+            element.addEventListener('mouseover', (e) => {
+                let tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.textContent = e.target.getAttribute('data-tooltip');
+                document.body.appendChild(tooltip);
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+                tooltip.style.display = 'block';
+            });
+
+            element.addEventListener('mouseout', () => {
+                let tooltip = document.querySelector('.tooltip');
+                if (tooltip) {
+                    tooltip.remove();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
