@@ -198,214 +198,220 @@
 
     <script>
         function createStars() {
-            const starsContainer = document.createElement('div');
-            starsContainer.className = 'stars';
-            document.body.insertBefore(starsContainer, document.body.firstChild);
+        const starsContainer = document.createElement('div');
+        starsContainer.className = 'stars';
+        document.body.insertBefore(starsContainer, document.body.firstChild);
 
-            for (let i = 0; i < 200; i++) {
-                const star = document.createElement('div');
-                star.className = 'star';
-                star.style.width = Math.random() * 2 + 'px';
-                star.style.height = star.style.width;
-                star.style.left = Math.random() * 100 + '%';
-                star.style.top = Math.random() * 100 + '%';
-                star.style.animationDelay = Math.random() * 5 + 's';
-                starsContainer.appendChild(star);
-            }
+        for (let i = 0; i < 200; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.width = Math.random() * 2 + 'px';
+            star.style.height = star.style.width;
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDelay = Math.random() * 5 + 's';
+            starsContainer.appendChild(star);
         }
+    }
 
-        createStars();
+    createStars();
 
-        const rotor = document.querySelector('.rotor');
-        const rpmDisplay = document.getElementById('rpm');
-        const currentDisplay = document.getElementById('current');
-        const temperatureDisplay = document.getElementById('temperature');
-        const efficiencyDisplay = document.getElementById('efficiency');
-        const voltageSlider = document.getElementById('voltage');
-        const voltageValue = document.getElementById('voltageValue');
-        const loadSlider = document.getElementById('load');
-        const loadValue = document.getElementById('loadValue');
-        const toggleButton = document.getElementById('toggle');
-        const efficiencyBar = document.getElementById('efficiencyBar');
+    const rotor = document.querySelector('.rotor');
+    const rpmDisplay = document.getElementById('rpm');
+    const currentDisplay = document.getElementById('current');
+    const temperatureDisplay = document.getElementById('temperature');
+    const efficiencyDisplay = document.getElementById('efficiency');
+    const voltageSlider = document.getElementById('voltage');
+    const voltageValue = document.getElementById('voltageValue');
+    const loadSlider = document.getElementById('load');
+    const loadValue = document.getElementById('loadValue');
+    const toggleButton = document.getElementById('toggle');
+    const efficiencyBar = document.getElementById('efficiencyBar');
 
-        let isRunning = false;
-        let rotation = 0;
-        let animationId;
-        let temperature = 25;
-        const maxTemperature = 100;
-        const coolingRate = 0.05;
-        const heatingRate = 0.02;
+    let isRunning = false;
+    let rotation = 0;
+    let animationId;
+    let temperature = 25;
+    const maxTemperature = 100;
+    const coolingRate = 0.05;
+    const heatingRate = 0.02;
 
-        // Audio context
-        let audioContext = null;
-        let sourceNode = null;
-        let gainNode = null;
+    // Audio context
+    let audioContext = null;
+    let sourceNode = null;
+    let gainNode = null;
 
-        // Load audio file
-        let audioBuffer;
-        fetch('engine-rpm.mp3')
-            .then(response => response.arrayBuffer())
-            .then(arrayBuffer => {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                return audioContext.decodeAudioData(arrayBuffer);
-            })
-            .then(decodedAudio => {
-                audioBuffer = decodedAudio;
-            })
-            .catch(error => console.error('Error loading audio:', error));
+    // Load audio file
+    let audioBuffer;
+    fetch('engine-rpm.mp3')
+        .then(response => response.arrayBuffer())
+        .then(arrayBuffer => {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            return audioContext.decodeAudioData(arrayBuffer);
+        })
+        .then(decodedAudio => {
+            audioBuffer = decodedAudio;
+        })
+        .catch(error => console.error('Error loading audio:', error));
 
-        function createSound() {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
+    function createSound() {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        gainNode = audioContext.createGain();
+        gainNode.connect(audioContext.destination);
+        
+        // Start with zero gain
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        
+        sourceNode = createSourceNode();
+        sourceNode.start(0);
+        
+        // Fade in
+        gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.5);
+    }
+
+    function createSourceNode() {
+        let source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.loop = true;
+        source.connect(gainNode);
+        return source;
+    }
+
+    function updateSound(rpm) {
+        if (gainNode && sourceNode) {
+            const maxRPM = 6000;
+            const volume = Math.min(rpm / maxRPM, 1);
+            gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, 0.1);
             
-            gainNode = audioContext.createGain();
-            gainNode.connect(audioContext.destination);
+            const playbackRate = 0.5 + Math.min(rpm / maxRPM, 1) * 1.5;
+            sourceNode.playbackRate.setTargetAtTime(playbackRate, audioContext.currentTime, 0.1);
+        }
+    }
+
+    function stopSound() {
+        if (gainNode) {
+            // Fade out
+            gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
             
-            // Start with zero gain
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            
-            sourceNode = createSourceNode();
-            sourceNode.start(0);
-            
-            // Fade in
-            gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.5);
-        }
-
-        function createSourceNode() {
-            let source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.loop = true;
-            source.connect(gainNode);
-            return source;
-        }
-
-        function updateSound(rpm) {
-            if (gainNode && sourceNode) {
-                const maxRPM = 6000;
-                const volume = Math.min(rpm / maxRPM, 1);
-                gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, 0.1);
-                
-                const playbackRate = 0.5 + Math.min(rpm / maxRPM, 1) * 1.5;
-                sourceNode.playbackRate.setTargetAtTime(playbackRate, audioContext.currentTime, 0.1);
-            }
-        }
-
-        function stopSound() {
-            if (gainNode) {
-                // Fade out
-                gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-                
-                setTimeout(() => {
-                    if (sourceNode) {
-                        sourceNode.stop();
-                        sourceNode.disconnect();
-                        sourceNode = null;
-                    }
-                    gainNode.disconnect();
-                    gainNode = null;
-                }, 500);
-            }
-        }
-
-        function updateMotor() {
-            const voltage = parseFloat(voltageSlider.value);
-            const load = parseFloat(loadSlider.value);
-            const rpm = voltage * 500 * (1 - load / 100);
-            const current = voltage / 2 * (1 + load / 100);
-
-            rotation += rpm / 60;
-            rotor.style.transform = `rotate(${rotation}deg)`;
-
-            rpmDisplay.textContent = rpm.toFixed(0);
-            currentDisplay.textContent = current.toFixed(2);
-
-            if (isRunning) {
-                temperature += (voltage * heatingRate * (1 + load / 100)) - coolingRate;
-            } else {
-                temperature = Math.max(temperature - coolingRate, 25);
-            }
-            temperature = Math.min(Math.max(temperature, 25), maxTemperature);
-            temperatureDisplay.textContent = temperature.toFixed(1);
-
-            const inputPower = voltage * current;
-            const outputPower = (rpm / 60) * (2 * Math.PI) * (load / 100);
-            const efficiency = inputPower > 0 ? (outputPower / inputPower) * 100 : 0;
-            efficiencyDisplay.textContent = efficiency.toFixed(1);
-            efficiencyBar.style.width = `${efficiency}%`;
-
-            if (isRunning) {
-                updateSound(rpm);
-            }
-
-            if (temperature >= maxTemperature) {
-                stopMotor();
-                alert('Motor overheated! Shutting down.');
-            } else {
-                animationId = requestAnimationFrame(updateMotor);
-            }
-        }
-
-        function startMotor() {
-            isRunning = true;
-            toggleButton.textContent = 'Stop Motor';
-            toggleButton.style.backgroundColor = '#e74c3c';
-            createSound();
-        }
-
-        function stopMotor() {
-            isRunning = false;
-            toggleButton.textContent = 'Start Motor';
-            toggleButton.style.backgroundColor = '#3498db';
-            stopSound();
-        }
-
-        function resetDisplays() {
-            rpmDisplay.textContent = '0';
-            currentDisplay.textContent = '0';
-            temperatureDisplay.textContent = '25.0';
-            efficiencyDisplay.textContent = '0';
-            efficiencyBar.style.width = '0%';
-        }
-
-        voltageSlider.addEventListener('input', () => {
-            voltageValue.textContent = voltageSlider.value;
-        });
-
-        loadSlider.addEventListener('input', () => {
-            loadValue.textContent = loadSlider.value;
-        });
-
-        toggleButton.addEventListener('click', () => {
-            if (isRunning) {
-                stopMotor();
-            } else {
-                startMotor();
-            }
-        });
-
-        updateMotor();
-
-        // Tooltip functionality
-        document.querySelectorAll('[data-tooltip]').forEach(element => {
-            element.addEventListener('mouseover', (e) => {
-                let tooltip = document.createElement('div');
-                tooltip.className = 'tooltip';
-                tooltip.textContent = e.target.getAttribute('data-tooltip');
-                document.body.appendChild(tooltip);
-                tooltip.style.left = e.pageX + 10 + 'px';
-                tooltip.style.top = e.pageY + 10 + 'px';
-                tooltip.style.display = 'block';
-            });
-
-            element.addEventListener('mouseout', () => {
-                let tooltip = document.querySelector('.tooltip');
-                if (tooltip) {
-                    tooltip.remove();
+            setTimeout(() => {
+                if (sourceNode) {
+                    sourceNode.stop();
+                    sourceNode.disconnect();
+                    sourceNode = null;
                 }
-            });
+                gainNode.disconnect();
+                gainNode = null;
+            }, 500);
+        }
+    }
+
+    function updateMotor() {
+        const voltage = parseFloat(voltageSlider.value);
+        const load = parseFloat(loadSlider.value);
+        const rpm = voltage * 500 * (1 - load / 100);
+        const current = voltage / 2 * (1 + load / 100);
+
+        rotation += rpm / 60;
+        rotor.style.transform = `rotate(${rotation}deg)`;
+
+        rpmDisplay.textContent = rpm.toFixed(0);
+        currentDisplay.textContent = current.toFixed(2);
+
+        if (isRunning) {
+            temperature += (voltage * heatingRate * (1 + load / 100)) - coolingRate;
+        } else {
+            temperature = Math.max(temperature - coolingRate, 25);
+        }
+        temperature = Math.min(Math.max(temperature, 25), maxTemperature);
+        temperatureDisplay.textContent = temperature.toFixed(1);
+
+        const inputPower = voltage * current;
+        const outputPower = (rpm / 60) * (2 * Math.PI) * (load / 100);
+        const efficiency = inputPower > 0 ? (outputPower / inputPower) * 100 : 0;
+        efficiencyDisplay.textContent = efficiency.toFixed(1);
+        efficiencyBar.style.width = `${efficiency}%`;
+
+        if (isRunning) {
+            updateSound(rpm);
+        }
+
+        if (temperature >= maxTemperature) {
+            stopMotor();
+            alert('Motor overheated! Shutting down.');
+        } else if (isRunning) {
+            animationId = requestAnimationFrame(updateMotor);
+        }
+    }
+
+    function startMotor() {
+        isRunning = true;
+        toggleButton.textContent = 'Stop Motor';
+        toggleButton.style.backgroundColor = '#e74c3c';
+        createSound();
+        animationId = requestAnimationFrame(updateMotor);
+    }
+
+    function stopMotor() {
+        isRunning = false;
+        toggleButton.textContent = 'Start Motor';
+        toggleButton.style.backgroundColor = '#3498db';
+        stopSound();
+        cancelAnimationFrame(animationId);
+        rotation = 0;
+        rotor.style.transform = `rotate(${rotation}deg)`;
+        resetDisplays();
+    }
+
+    function resetDisplays() {
+        rpmDisplay.textContent = '0';
+        currentDisplay.textContent = '0';
+        temperatureDisplay.textContent = '25.0';
+        efficiencyDisplay.textContent = '0';
+        efficiencyBar.style.width = '0%';
+        temperature = 25;
+    }
+
+    voltageSlider.addEventListener('input', () => {
+        voltageValue.textContent = voltageSlider.value;
+    });
+
+    loadSlider.addEventListener('input', () => {
+        loadValue.textContent = loadSlider.value;
+    });
+
+    toggleButton.addEventListener('click', () => {
+        if (isRunning) {
+            stopMotor();
+        } else {
+            startMotor();
+        }
+    });
+
+    // Tooltip functionality
+    document.querySelectorAll('[data-tooltip]').forEach(element => {
+        element.addEventListener('mouseover', (e) => {
+            let tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = e.target.getAttribute('data-tooltip');
+            document.body.appendChild(tooltip);
+            tooltip.style.left = e.pageX + 10 + 'px';
+            tooltip.style.top = e.pageY + 10 + 'px';
+            tooltip.style.display = 'block';
         });
+
+        element.addEventListener('mouseout', () => {
+            let tooltip = document.querySelector('.tooltip');
+            if (tooltip) {
+                tooltip.remove();
+            }
+        });
+    });
+
+    resetDisplays();
     </script>
 </body>
 </html>
